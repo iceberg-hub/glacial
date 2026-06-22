@@ -1,7 +1,10 @@
 package org.iceberg;
 
+import org.iceberg.server.RedisServer;
+
 public class Main {
     static void main(String[] args) {
-        System.out.println("Glacial Redis server starting...");
+        var server = new RedisServer(6379);
+        server.start();
     }
 }
