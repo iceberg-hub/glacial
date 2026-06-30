@@ -1,5 +1,10 @@
 plugins {
     id("java")
+    application
+}
+
+application {
+    mainClass = "org.iceberg.Main"
 }
 
 group = "org.iceberg"
