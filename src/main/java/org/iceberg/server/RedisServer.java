@@ -4,6 +4,7 @@ import org.iceberg.resp.*;
 
 import java.io.IOException;
 import java.io.PushbackInputStream;
+import java.io.UncheckedIOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.logging.Level;
@@ -23,10 +24,11 @@ public class RedisServer {
 
     public void start() {
         try (var server = new ServerSocket(port)) {
-            System.out.println("Redis Lite server listening on port " + port);
+            System.out.println("Glacial server listening on port " + port);
             while (true) {
                 try {
                     var socket = server.accept();
+                    socket.setTcpNoDelay(true);
                     Thread.ofVirtual()
                             .name("redis-client")
                             .start(() -> handleClient(socket));
@@ -66,6 +68,8 @@ public class RedisServer {
                 RespParser.serialize(response, out);
                 out.flush();
             }
+        } catch (UncheckedIOException e) {
+            LOG.log(Level.FINE, "Client disconnected", e.getCause());
         } catch (IOException e) {
             LOG.log(Level.FINE, "Client disconnected", e);
         } catch (Exception e) {

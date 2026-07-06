@@ -44,7 +44,7 @@ public class CommandRegistry {
                 return new RespError("ERR unknown command '" + commandName + "'");
             }
             var response = command.execute(items);
-            LOG.log(Level.INFO, "Command execution response: " + response.toString());
+            LOG.log(Level.FINE, "Command execution response: {0}", response);
             return response;
         }
         return new RespError("ERR expected array command");
