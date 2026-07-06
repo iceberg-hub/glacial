@@ -54,6 +54,48 @@ class RedisServerTest {
     }
 
     @Test
+    void setAndGet() throws Exception {
+        try (var socket = new Socket()) {
+            socket.connect(new InetSocketAddress("localhost", port), 5000);
+            var out = socket.getOutputStream();
+            var in = socket.getInputStream();
+            sendAndFlush(out, "*3\r\n$3\r\nSET\r\n$4\r\nName\r\n$4\r\nJohn\r\n");
+            assertEquals("+OK", readResp(in));
+
+            sendAndFlush(out, "*2\r\n$3\r\nGET\r\n$4\r\nName\r\n");
+            assertEquals("$4", readResp(in));
+            assertEquals("John", readBytes(in, 4));
+        }
+    }
+
+    @Test
+    void getNonExistentKeyReturnsNull() throws Exception {
+        try (var socket = new Socket()) {
+            socket.connect(new InetSocketAddress("localhost", port), 5000);
+            sendAndFlush(socket.getOutputStream(), "*2\r\n$3\r\nGET\r\n$11\r\nNonExistent\r\n");
+            assertEquals("$-1", readResp(socket.getInputStream()));
+        }
+    }
+
+    @Test
+    void setOverwritesExistingKey() throws Exception {
+        try (var socket = new Socket()) {
+            socket.connect(new InetSocketAddress("localhost", port), 5000);
+            var out = socket.getOutputStream();
+            var in = socket.getInputStream();
+            sendAndFlush(out, "*3\r\n$3\r\nSET\r\n$3\r\nkey\r\n$6\r\nvalue1\r\n");
+            assertEquals("+OK", readResp(in));
+
+            sendAndFlush(out, "*3\r\n$3\r\nSET\r\n$3\r\nkey\r\n$6\r\nvalue2\r\n");
+            assertEquals("+OK", readResp(in));
+
+            sendAndFlush(out, "*2\r\n$3\r\nGET\r\n$3\r\nkey\r\n");
+            assertEquals("$6", readResp(in));
+            assertEquals("value2", readBytes(in, 6));
+        }
+    }
+
+    @Test
     void malformedRequestGetsProtocolError() throws Exception {
         try (var socket = new Socket()) {
             socket.connect(new InetSocketAddress("localhost", port), 5000);

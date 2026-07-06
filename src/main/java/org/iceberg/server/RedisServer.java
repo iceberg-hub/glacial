@@ -18,7 +18,7 @@ public class RedisServer {
 
     public RedisServer(int port) {
         this.port = port;
-        this.commandRegistry = new CommandRegistry();
+        this.commandRegistry = new CommandRegistry(new Store());
     }
 
     public void start() {
