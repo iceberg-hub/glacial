@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class CommandRegistryTest {
 
-    private final CommandRegistry registry = new CommandRegistry();
+    private final CommandRegistry registry = new CommandRegistry(new Store());
 
     @Test
     void ping() {

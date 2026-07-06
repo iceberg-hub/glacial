@@ -3,7 +3,9 @@ package org.iceberg.server;
 import org.iceberg.resp.*;
 import org.iceberg.server.command.Command;
 import org.iceberg.server.command.EchoCommand;
+import org.iceberg.server.command.GetCommand;
 import org.iceberg.server.command.PingCommand;
+import org.iceberg.server.command.SetCommand;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
@@ -16,10 +18,12 @@ public class CommandRegistry {
     private final Map<String, Command> commands;
     private static final Logger LOG = Logger.getLogger(CommandRegistry.class.getName());
 
-    public CommandRegistry() {
+    public CommandRegistry(Store store) {
         this.commands = Map.of(
             "PING", new PingCommand(),
-            "ECHO", new EchoCommand()
+            "ECHO", new EchoCommand(),
+            "SET", new SetCommand(store),
+            "GET", new GetCommand(store)
         );
     }
 
