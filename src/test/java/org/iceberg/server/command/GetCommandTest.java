@@ -66,4 +66,23 @@ class GetCommandTest {
         var result = command.execute(args);
         assertInstanceOf(RespError.class, result);
     }
+
+    @Test
+    void returnsNullForExpiredKey() {
+        long expireAt = System.currentTimeMillis() + 100;
+        store.set("temp", "value".getBytes(), expireAt);
+        var args = new org.iceberg.resp.RespValue[]{
+                new BulkString("GET".getBytes()),
+                new BulkString("temp".getBytes())
+        };
+        var before = command.execute(args);
+        assertInstanceOf(BulkString.class, before);
+        assertArrayEquals("value".getBytes(), ((BulkString) before).value());
+
+        try { Thread.sleep(150); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+
+        var after = command.execute(args);
+        assertInstanceOf(BulkString.class, after);
+        assertNull(((BulkString) after).value());
+    }
 }
