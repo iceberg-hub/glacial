@@ -189,4 +189,39 @@ class RedisServerTest {
             assertEquals(":-1", readResp(socket.getInputStream()));
         }
     }
+
+    @Test
+    void lpushCreatesListAndReturnsLength() throws Exception {
+        try (var socket = new Socket()) {
+            socket.connect(new InetSocketAddress("localhost", port), 5000);
+            var out = socket.getOutputStream();
+            var in = socket.getInputStream();
+            sendAndFlush(out, "*4\r\n$5\r\nLPUSH\r\n$6\r\nmylist\r\n$1\r\na\r\n$1\r\nb\r\n");
+            assertEquals(":2", readResp(in));
+        }
+    }
+
+    @Test
+    void rpushCreatesListAndReturnsLength() throws Exception {
+        try (var socket = new Socket()) {
+            socket.connect(new InetSocketAddress("localhost", port), 5000);
+            var out = socket.getOutputStream();
+            var in = socket.getInputStream();
+            sendAndFlush(out, "*4\r\n$5\r\nRPUSH\r\n$6\r\nmylist\r\n$1\r\na\r\n$1\r\nb\r\n");
+            assertEquals(":2", readResp(in));
+        }
+    }
+
+    @Test
+    void lpushThenGetReturnsNull() throws Exception {
+        try (var socket = new Socket()) {
+            socket.connect(new InetSocketAddress("localhost", port), 5000);
+            var out = socket.getOutputStream();
+            var in = socket.getInputStream();
+            sendAndFlush(out, "*3\r\n$5\r\nLPUSH\r\n$3\r\nlst\r\n$3\r\nfoo\r\n");
+            assertEquals(":1", readResp(in));
+            sendAndFlush(out, "*2\r\n$3\r\nGET\r\n$3\r\nlst\r\n");
+            assertEquals("$-1", readResp(in));
+        }
+    }
 }

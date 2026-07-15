@@ -64,36 +64,42 @@ public class Store {
         return result;
     }
 
-    public void lpush(String key, byte[]... values) {
+    private StoreValue.ListValue getListOrCreate(String key) {
         var existing = data.get(key);
-        StoreValue.ListValue list;
         if (existing instanceof StoreValue.ListValue lv) {
-            list = lv;
+            return lv;
         } else if (existing == null) {
-            list = new StoreValue.ListValue();
-            data.put(key, list);
+            var newList = new StoreValue.ListValue();
+            var existing2 = data.putIfAbsent(key, newList);
+            if (existing2 instanceof StoreValue.ListValue lv) {
+                return lv;
+            }
+            return newList;
         } else {
             throw new StoreTypeException("ERR wrong type for key");
         }
-        for (int i = values.length - 1; i >= 0; i--) {
-            list.elements().add(0, values[i]);
+    }
+
+    public void lpush(String key, byte[]... values) {
+        var list = getListOrCreate(key);
+        for (byte[] value : values) {
+            list.elements().add(0, value);
         }
     }
 
     public void rpush(String key, byte[]... values) {
-        var existing = data.get(key);
-        StoreValue.ListValue list;
-        if (existing instanceof StoreValue.ListValue lv) {
-            list = lv;
-        } else if (existing == null) {
-            list = new StoreValue.ListValue();
-            data.put(key, list);
-        } else {
-            throw new StoreTypeException("ERR wrong type for key");
-        }
+        var list = getListOrCreate(key);
         for (byte[] value : values) {
             list.elements().add(value);
         }
+    }
+
+    public int llen(String key) {
+        var val = data.get(key);
+        if (val instanceof StoreValue.ListValue(java.util.concurrent.CopyOnWriteArrayList<byte[]> list)) {
+            return list.size();
+        }
+        return -1;
     }
 
     public List<byte[]> lrange(String key, long start, long stop) {

@@ -8,10 +8,14 @@ import org.iceberg.server.command.EchoCommand;
 import org.iceberg.server.command.ExistsCommand;
 import org.iceberg.server.command.GetCommand;
 import org.iceberg.server.command.IncrCommand;
+import org.iceberg.server.command.LpushCommand;
+import org.iceberg.server.command.LrangeCommand;
 import org.iceberg.server.command.PingCommand;
+import org.iceberg.server.command.RpushCommand;
 import org.iceberg.server.command.SetCommand;
 
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.logging.Level;
@@ -23,7 +27,7 @@ public class CommandRegistry {
     private static final Logger LOG = Logger.getLogger(CommandRegistry.class.getName());
 
     public CommandRegistry(Store store) {
-        this.commands = Map.of(
+        this.commands = new HashMap<>(Map.of(
             "PING", new PingCommand(),
             "ECHO", new EchoCommand(),
             "SET", new SetCommand(store),
@@ -31,8 +35,11 @@ public class CommandRegistry {
             "EXISTS", new ExistsCommand(store),
             "DEL", new DelCommand(store),
             "INCR", new IncrCommand(store),
-            "DECR", new DecrCommand(store)
-        );
+            "DECR", new DecrCommand(store),
+            "LPUSH", new LpushCommand(store),
+            "RPUSH", new RpushCommand(store)
+        ));
+        this.commands.put("LRANGE", new LrangeCommand(store));
     }
 
     public RespValue execute(RespValue request) {

@@ -197,4 +197,36 @@ class LettuceIntegrationTest {
         var result = commands.decr("cnt");
         assertEquals(9L, result);
     }
+
+    @Test
+    void lpushCreatesListAndReturnsLength() {
+        var result = commands.lpush("mylist", "a", "b", "c");
+        assertEquals(3L, result);
+    }
+
+    @Test
+    void rpushCreatesListAndReturnsLength() {
+        var result = commands.rpush("mylist", "x", "y");
+        assertEquals(2L, result);
+    }
+
+    @Test
+    void lpushThenLrange() {
+        commands.lpush("lst", "a", "b", "c");
+        var list = commands.lrange("lst", 0, -1);
+        assertEquals(3, list.size());
+        assertEquals("c", list.get(0));
+        assertEquals("b", list.get(1));
+        assertEquals("a", list.get(2));
+    }
+
+    @Test
+    void rpushThenLrange() {
+        commands.rpush("lst", "a", "b", "c");
+        var list = commands.lrange("lst", 0, -1);
+        assertEquals(3, list.size());
+        assertEquals("a", list.get(0));
+        assertEquals("b", list.get(1));
+        assertEquals("c", list.get(2));
+    }
 }
