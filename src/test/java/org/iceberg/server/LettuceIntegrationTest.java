@@ -165,4 +165,36 @@ class LettuceIntegrationTest {
         var result = commands.del("ghost");
         assertEquals(0L, result);
     }
+
+    @Test
+    void incrNonExistentKeyReturnsOne() {
+        var result = commands.incr("mycounter");
+        assertEquals(1L, result);
+    }
+
+    @Test
+    void incrExistingValue() {
+        commands.set("cnt", "10");
+        var result = commands.incr("cnt");
+        assertEquals(11L, result);
+    }
+
+    @Test
+    void incrNonIntegerReturnsError() {
+        commands.set("str", "abc");
+        assertThrows(Exception.class, () -> commands.incr("str"));
+    }
+
+    @Test
+    void decrNonExistentKeyReturnsMinusOne() {
+        var result = commands.decr("mycounter");
+        assertEquals(-1L, result);
+    }
+
+    @Test
+    void decrExistingValue() {
+        commands.set("cnt", "10");
+        var result = commands.decr("cnt");
+        assertEquals(9L, result);
+    }
 }

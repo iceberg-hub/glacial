@@ -2,10 +2,12 @@ package org.iceberg.server;
 
 import org.iceberg.resp.*;
 import org.iceberg.server.command.Command;
+import org.iceberg.server.command.DecrCommand;
 import org.iceberg.server.command.DelCommand;
 import org.iceberg.server.command.EchoCommand;
 import org.iceberg.server.command.ExistsCommand;
 import org.iceberg.server.command.GetCommand;
+import org.iceberg.server.command.IncrCommand;
 import org.iceberg.server.command.PingCommand;
 import org.iceberg.server.command.SetCommand;
 
@@ -27,7 +29,9 @@ public class CommandRegistry {
             "SET", new SetCommand(store),
             "GET", new GetCommand(store),
             "EXISTS", new ExistsCommand(store),
-            "DEL", new DelCommand(store)
+            "DEL", new DelCommand(store),
+            "INCR", new IncrCommand(store),
+            "DECR", new DecrCommand(store)
         );
     }
 

@@ -143,4 +143,50 @@ class RedisServerTest {
             assertEquals("$-1", readResp(in));
         }
     }
+
+    @Test
+    void incrNonExistentKeyReturnsOne() throws Exception {
+        try (var socket = new Socket()) {
+            socket.connect(new InetSocketAddress("localhost", port), 5000);
+            sendAndFlush(socket.getOutputStream(), "*2\r\n$4\r\nINCR\r\n$7\r\ncounter\r\n");
+            assertEquals(":1", readResp(socket.getInputStream()));
+        }
+    }
+
+    @Test
+    void incrExistingValue() throws Exception {
+        try (var socket = new Socket()) {
+            socket.connect(new InetSocketAddress("localhost", port), 5000);
+            var out = socket.getOutputStream();
+            var in = socket.getInputStream();
+            sendAndFlush(out, "*3\r\n$3\r\nSET\r\n$7\r\ncounter\r\n$2\r\n10\r\n");
+            assertEquals("+OK", readResp(in));
+
+            sendAndFlush(out, "*2\r\n$4\r\nINCR\r\n$7\r\ncounter\r\n");
+            assertEquals(":11", readResp(in));
+        }
+    }
+
+    @Test
+    void incrNonIntegerReturnsError() throws Exception {
+        try (var socket = new Socket()) {
+            socket.connect(new InetSocketAddress("localhost", port), 5000);
+            var out = socket.getOutputStream();
+            var in = socket.getInputStream();
+            sendAndFlush(out, "*3\r\n$3\r\nSET\r\n$3\r\nkey\r\n$3\r\nabc\r\n");
+            assertEquals("+OK", readResp(in));
+
+            sendAndFlush(out, "*2\r\n$4\r\nINCR\r\n$3\r\nkey\r\n");
+            assertTrue(readResp(in).contains("not an integer"));
+        }
+    }
+
+    @Test
+    void decrNonExistentKeyReturnsMinusOne() throws Exception {
+        try (var socket = new Socket()) {
+            socket.connect(new InetSocketAddress("localhost", port), 5000);
+            sendAndFlush(socket.getOutputStream(), "*2\r\n$4\r\nDECR\r\n$7\r\ncounter\r\n");
+            assertEquals(":-1", readResp(socket.getInputStream()));
+        }
+    }
 }
