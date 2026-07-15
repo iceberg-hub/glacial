@@ -17,7 +17,6 @@ import org.iceberg.server.command.SetCommand;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.util.Locale;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -45,30 +44,34 @@ public class CommandRegistry {
     }
 
     public RespValue execute(RespValue request) {
-        if (request instanceof Array(RespValue[] items)) {
-            if (items == null || items.length == 0) {
-                return new RespError("ERR empty command");
-            }
-            if (!(items[0] instanceof BulkString(byte[] name))) {
-                return new RespError("ERR command name must be bulk string");
-            }
-            if (name == null) {
-                return new RespError("ERR empty command name");
-            }
-            byte[] upper = new byte[name.length];
-            for (int i = 0; i < name.length; i++) {
-                byte b = name[i];
-                upper[i] = (b >= 'a' && b <= 'z') ? (byte) (b - 32) : b;
-            }
-            var commandName = new String(upper, StandardCharsets.UTF_8);
-            var command = commands.get(commandName);
-            if (command == null) {
-                return new RespError("ERR unknown command '" + commandName + "'");
-            }
-            var response = command.execute(items);
-            LOG.log(Level.FINE, "Command execution response: {0}", response);
-            return response;
+        if (!(request instanceof Array(RespValue[] items))) {
+            return new RespError("ERR expected array command");
         }
-        return new RespError("ERR expected array command");
+        if (items == null || items.length == 0) {
+            return new RespError("ERR empty command");
+        }
+        if (!(items[0] instanceof BulkString(byte[] name))) {
+            return new RespError("ERR command name must be bulk string");
+        }
+        if (name == null) {
+            return new RespError("ERR empty command name");
+        }
+        var commandName = toUpperCase(name);
+        var command = commands.get(commandName);
+        if (command == null) {
+            return new RespError("ERR unknown command '" + commandName + "'");
+        }
+        var response = command.execute(items);
+        LOG.log(Level.FINE, "Command execution response: {0}", response);
+        return response;
+    }
+
+    private static String toUpperCase(byte[] name) {
+        byte[] upper = new byte[name.length];
+        for (int i = 0; i < name.length; i++) {
+            byte b = name[i];
+            upper[i] = (b >= 'a' && b <= 'z') ? (byte) (b - 32) : b;
+        }
+        return new String(upper, StandardCharsets.UTF_8);
     }
 }
