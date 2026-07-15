@@ -2,6 +2,8 @@ package org.iceberg.server;
 
 import org.iceberg.resp.*;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.PushbackInputStream;
 import java.io.UncheckedIOException;
@@ -51,8 +53,8 @@ public class RedisServer {
 
     private void handleClient(Socket socket) {
         try (socket) {
-            var in = new PushbackInputStream(socket.getInputStream(), 1);
-            var out = socket.getOutputStream();
+            var in = new PushbackInputStream(new BufferedInputStream(socket.getInputStream(), 8192), 1);
+            var out = new BufferedOutputStream(socket.getOutputStream(), 8192);
             while (true) {
                 int first = in.read();
                 if (first == -1) {
@@ -72,7 +74,11 @@ public class RedisServer {
                     return;
                 }
                 var response = commandRegistry.execute(request);
-                RespParser.serialize(response, out);
+                if (RespParser.isOk(response)) {
+                    RespParser.serializeOk(out);
+                } else {
+                    RespParser.serialize(response, out);
+                }
                 out.flush();
             }
         } catch (UncheckedIOException e) {

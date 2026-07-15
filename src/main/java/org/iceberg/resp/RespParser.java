@@ -5,6 +5,11 @@ import java.nio.charset.StandardCharsets;
 
 public class RespParser {
 
+    private static final byte[] OK_BYTES = "+OK\r\n".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] CRLF = "\r\n".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] NULL_BULK = "$-1\r\n".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] NULL_ARRAY = "*-1\r\n".getBytes(StandardCharsets.UTF_8);
+
     public static RespValue parse(byte[] data) {
         return parse(new ByteArrayInputStream(data));
     }
@@ -31,6 +36,14 @@ public class RespParser {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    public static boolean isOk(RespValue value) {
+        return value instanceof SimpleString s && "OK".equals(s.value());
+    }
+
+    public static void serializeOk(OutputStream out) throws IOException {
+        out.write(OK_BYTES);
     }
 
     private static RespValue parseValue(InputStream in) {
@@ -98,57 +111,78 @@ public class RespParser {
     private static void writeSimpleString(SimpleString s, OutputStream out) throws IOException {
         out.write('+');
         out.write(s.value().getBytes(StandardCharsets.UTF_8));
-        out.write('\r');
-        out.write('\n');
+        out.write(CRLF);
     }
 
     private static void writeError(RespError e, OutputStream out) throws IOException {
         out.write('-');
         out.write(e.value().getBytes(StandardCharsets.UTF_8));
-        out.write('\r');
-        out.write('\n');
+        out.write(CRLF);
     }
 
     private static void writeInteger(RespInteger i, OutputStream out) throws IOException {
         out.write(':');
-        out.write(Long.toString(i.value()).getBytes(StandardCharsets.UTF_8));
-        out.write('\r');
-        out.write('\n');
+        writeInt(out, i.value());
+        out.write(CRLF);
     }
 
     private static void writeBulkString(BulkString b, OutputStream out) throws IOException {
-        out.write('$');
         if (b.value() == null) {
-            out.write("-1".getBytes(StandardCharsets.UTF_8));
-        } else {
-            out.write(Integer.toString(b.value().length).getBytes(StandardCharsets.UTF_8));
-            out.write('\r');
-            out.write('\n');
-            out.write(b.value());
+            out.write(NULL_BULK);
+            return;
         }
-        out.write('\r');
-        out.write('\n');
+        out.write('$');
+        writeInt(out, b.value().length);
+        out.write(CRLF);
+        out.write(b.value());
+        out.write(CRLF);
     }
 
     private static void writeArray(Array a, OutputStream out) throws IOException {
-        out.write('*');
         if (a.value() == null) {
-            out.write("-1".getBytes(StandardCharsets.UTF_8));
-        } else {
-            out.write(Integer.toString(a.value().length).getBytes(StandardCharsets.UTF_8));
-            out.write('\r');
-            out.write('\n');
-            for (var item : a.value()) {
-                serialize(item, out);
-            }
+            out.write(NULL_ARRAY);
             return;
         }
-        out.write('\r');
-        out.write('\n');
+        out.write('*');
+        writeInt(out, a.value().length);
+        out.write(CRLF);
+        for (var item : a.value()) {
+            serialize(item, out);
+        }
+    }
+
+    private static final ThreadLocal<byte[]> LINE_BUF = ThreadLocal.withInitial(() -> new byte[64]);
+    private static final ThreadLocal<byte[]> INT_BUF = ThreadLocal.withInitial(() -> new byte[21]);
+
+    private static void writeInt(OutputStream out, long value) throws IOException {
+        byte[] buf = INT_BUF.get();
+        if (value == 0) {
+            out.write('0');
+            return;
+        }
+        int pos = buf.length;
+        long v = value;
+        if (v < 0) {
+            if (v == Long.MIN_VALUE) {
+                byte[] minVal = "-9223372036854775808".getBytes(StandardCharsets.UTF_8);
+                out.write(minVal);
+                return;
+            }
+            v = -v;
+        }
+        while (v > 0) {
+            buf[--pos] = (byte) ('0' + (v % 10));
+            v /= 10;
+        }
+        if (value < 0) {
+            buf[--pos] = '-';
+        }
+        out.write(buf, pos, buf.length - pos);
     }
 
     private static String readLine(InputStream in) throws IOException {
-        var baos = new ByteArrayOutputStream();
+        byte[] buf = LINE_BUF.get();
+        int len = 0;
         int prev = in.read();
         if (prev == -1) {
             throw new IllegalArgumentException("Unexpected end of stream");
@@ -161,10 +195,14 @@ public class RespParser {
             if (prev == '\r' && cur == '\n') {
                 break;
             }
-            baos.write(prev);
+            if (len == buf.length) {
+                buf = java.util.Arrays.copyOf(buf, buf.length * 2);
+                LINE_BUF.set(buf);
+            }
+            buf[len++] = (byte) prev;
             prev = cur;
         }
-        return baos.toString(StandardCharsets.UTF_8);
+        return new String(buf, 0, len, StandardCharsets.UTF_8);
     }
 
     private static void readFully(InputStream in, byte[] buf) throws IOException {

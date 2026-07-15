@@ -55,7 +55,12 @@ public class CommandRegistry {
             if (name == null) {
                 return new RespError("ERR empty command name");
             }
-            var commandName = new String(name, StandardCharsets.UTF_8).toUpperCase(Locale.ROOT);
+            byte[] upper = new byte[name.length];
+            for (int i = 0; i < name.length; i++) {
+                byte b = name[i];
+                upper[i] = (b >= 'a' && b <= 'z') ? (byte) (b - 32) : b;
+            }
+            var commandName = new String(upper, StandardCharsets.UTF_8);
             var command = commands.get(commandName);
             if (command == null) {
                 return new RespError("ERR unknown command '" + commandName + "'");
