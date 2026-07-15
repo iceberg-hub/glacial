@@ -1,7 +1,6 @@
 package org.iceberg.server;
 
 import java.io.*;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
@@ -22,7 +21,7 @@ public class Persistence {
                 var key = entry.getKey();
                 var value = entry.getValue();
                 out.writeUTF(key);
-                if (value instanceof StoreValue.BytesValue(byte[] data)) {
+                if (value instanceof StoreValue.BytesValue(byte[] data, long expiresAtMillis)) {
                     out.writeByte('B');
                     out.writeInt(data.length);
                     out.write(data);

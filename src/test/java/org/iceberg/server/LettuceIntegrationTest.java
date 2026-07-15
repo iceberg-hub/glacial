@@ -2,6 +2,7 @@ package org.iceberg.server;
 
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.RedisCommandExecutionException;
+import io.lettuce.core.SetArgs;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.sync.RedisCommands;
 import io.lettuce.core.codec.StringCodec;
@@ -143,6 +144,69 @@ class LettuceIntegrationTest {
         commands.set("num", "123");
         var result = commands.get("num");
         assertEquals("123", result);
+    }
+
+    @Test
+    void setWithExpirySeconds() {
+        var result = commands.set("key", "value", SetArgs.Builder.ex(10));
+        assertEquals("OK", result);
+        assertEquals("value", commands.get("key"));
+    }
+
+    @Test
+    void setWithExpiryMillis() {
+        var result = commands.set("key", "value", SetArgs.Builder.px(10000));
+        assertEquals("OK", result);
+        assertEquals("value", commands.get("key"));
+    }
+
+    @Test
+    void setWithExpiryAtUnixSeconds() {
+        long futureSeconds = (System.currentTimeMillis() / 1000) + 60;
+        var result = commands.set("key", "value", SetArgs.Builder.exAt(futureSeconds));
+        assertEquals("OK", result);
+        assertEquals("value", commands.get("key"));
+    }
+
+    @Test
+    void setWithExpiryAtUnixMillis() {
+        long futureMillis = System.currentTimeMillis() + 60000;
+        var result = commands.set("key", "value", SetArgs.Builder.pxAt(futureMillis));
+        assertEquals("OK", result);
+        assertEquals("value", commands.get("key"));
+    }
+
+    @Test
+    void setWithExpirySecondsExpires() throws InterruptedException {
+        commands.set("key", "value", SetArgs.Builder.ex(1));
+        assertEquals("value", commands.get("key"));
+        Thread.sleep(1100);
+        assertNull(commands.get("key"));
+    }
+
+    @Test
+    void setWithExpiryMillisExpires() throws InterruptedException {
+        commands.set("key", "value", SetArgs.Builder.px(200));
+        assertEquals("value", commands.get("key"));
+        Thread.sleep(300);
+        assertNull(commands.get("key"));
+    }
+
+    @Test
+    void setWithExpiryAtUnixMillisExpires() throws InterruptedException {
+        long expireAt = System.currentTimeMillis() + 200;
+        commands.set("key", "value", SetArgs.Builder.pxAt(expireAt));
+        assertEquals("value", commands.get("key"));
+        Thread.sleep(300);
+        assertNull(commands.get("key"));
+    }
+
+    @Test
+    void setOverwriteDiscardsExpiry() {
+        commands.set("key", "value", SetArgs.Builder.ex(10));
+        assertEquals("value", commands.get("key"));
+        commands.set("key", "newvalue");
+        assertEquals("newvalue", commands.get("key"));
     }
 
     @Test

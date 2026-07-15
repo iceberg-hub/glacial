@@ -8,22 +8,46 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class Store {
+
+    public static final long NO_EXPIRY = Long.MAX_VALUE;
+
     private final Map<String, StoreValue> data = new ConcurrentHashMap<>();
+    private static final int ACTIVE_EXPIRY_SAMPLE_SIZE = 20;
+
+    public Store() {
+        startActiveExpiryThread();
+    }
 
     public void set(String key, byte[] value) {
-        data.put(key, new StoreValue.BytesValue(value));
+        set(key, value, NO_EXPIRY);
+    }
+
+    public void set(String key, byte[] value, long expiresAtMillis) {
+        data.put(key, new StoreValue.BytesValue(value, expiresAtMillis));
     }
 
     public byte[] get(String key) {
         var val = data.get(key);
-        if (val instanceof StoreValue.BytesValue(byte[] bytes)) {
+        if (val instanceof StoreValue.BytesValue(byte[] bytes, long expiresAtMillis)) {
+            if (expiresAtMillis != NO_EXPIRY && System.currentTimeMillis() >= expiresAtMillis) {
+                data.remove(key);
+                return null;
+            }
             return bytes;
         }
         return null;
     }
 
     public boolean exists(String key) {
-        return data.containsKey(key);
+        var val = data.get(key);
+        if (val instanceof StoreValue.BytesValue(byte[] bytes, long expiresAtMillis)) {
+            if (expiresAtMillis != NO_EXPIRY && System.currentTimeMillis() >= expiresAtMillis) {
+                data.remove(key);
+                return false;
+            }
+            return true;
+        }
+        return val != null;
     }
 
     public int delete(String... keys) {
@@ -40,10 +64,14 @@ public class Store {
         var val = data.get(key);
         long current = 0;
         if (val != null) {
-            if (!(val instanceof StoreValue.BytesValue(byte[] bytes))) {
+            if (!(val instanceof StoreValue.BytesValue(byte[] bytes, long expiresAtMillis))) {
                 throw new StoreTypeException("ERR wrong type or key");
             }
-            current = Long.parseLong(new String(bytes, StandardCharsets.UTF_8));
+            if (expiresAtMillis != NO_EXPIRY && System.currentTimeMillis() >= expiresAtMillis) {
+                data.remove(key);
+            } else {
+                current = Long.parseLong(new String(bytes, StandardCharsets.UTF_8));
+            }
         }
         long result = current + 1;
         data.put(key, new StoreValue.BytesValue(Long.toString(result).getBytes(StandardCharsets.UTF_8)));
@@ -54,10 +82,14 @@ public class Store {
         var val = data.get(key);
         long current = 0;
         if (val != null) {
-            if (!(val instanceof StoreValue.BytesValue(byte[] bytes))) {
+            if (!(val instanceof StoreValue.BytesValue(byte[] bytes, long expiresAtMillis))) {
                 throw new StoreTypeException("ERR wrong type or key");
             }
-            current = Long.parseLong(new String(bytes, StandardCharsets.UTF_8));
+            if (expiresAtMillis != NO_EXPIRY && System.currentTimeMillis() >= expiresAtMillis) {
+                data.remove(key);
+            } else {
+                current = Long.parseLong(new String(bytes, StandardCharsets.UTF_8));
+            }
         }
         long result = current - 1;
         data.put(key, new StoreValue.BytesValue(Long.toString(result).getBytes(StandardCharsets.UTF_8)));
@@ -131,6 +163,42 @@ public class Store {
     public void loadFrom(Map<String, StoreValue> entries) {
         data.clear();
         data.putAll(entries);
+    }
+
+    private long removeExpiredEntries() {
+        long now = System.currentTimeMillis();
+        long removed = 0;
+        var candidates = new ArrayList<String>();
+        var keys = data.keySet().iterator();
+        int sampled = 0;
+        while (keys.hasNext() && sampled < ACTIVE_EXPIRY_SAMPLE_SIZE) {
+            candidates.add(keys.next());
+            sampled++;
+        }
+        for (var key : candidates) {
+            var val = data.get(key);
+            if (val instanceof StoreValue.BytesValue(byte[] bytes, long expiresAtMillis)) {
+                if (expiresAtMillis != NO_EXPIRY && now >= expiresAtMillis) {
+                    data.remove(key);
+                    removed++;
+                }
+            }
+        }
+        return removed;
+    }
+
+    private void startActiveExpiryThread() {
+        Thread.startVirtualThread(() -> {
+            while (!Thread.currentThread().isInterrupted()) {
+                try {
+                    Thread.sleep(100);
+                    removeExpiredEntries();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        });
     }
 
     public static class StoreTypeException extends RuntimeException {
