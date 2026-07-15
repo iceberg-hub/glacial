@@ -2,7 +2,9 @@ package org.iceberg.server;
 
 import org.iceberg.resp.*;
 import org.iceberg.server.command.Command;
+import org.iceberg.server.command.DelCommand;
 import org.iceberg.server.command.EchoCommand;
+import org.iceberg.server.command.ExistsCommand;
 import org.iceberg.server.command.GetCommand;
 import org.iceberg.server.command.PingCommand;
 import org.iceberg.server.command.SetCommand;
@@ -23,7 +25,9 @@ public class CommandRegistry {
             "PING", new PingCommand(),
             "ECHO", new EchoCommand(),
             "SET", new SetCommand(store),
-            "GET", new GetCommand(store)
+            "GET", new GetCommand(store),
+            "EXISTS", new ExistsCommand(store),
+            "DEL", new DelCommand(store)
         );
     }
 

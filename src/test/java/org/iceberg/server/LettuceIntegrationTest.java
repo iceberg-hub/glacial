@@ -138,4 +138,31 @@ class LettuceIntegrationTest {
         var result = commands.get("num");
         assertEquals("123", result);
     }
+
+    @Test
+    void existsReturnsOneForExistingKey() {
+        commands.set("mykey", "myval");
+        var result = commands.exists("mykey");
+        assertEquals(1L, result);
+    }
+
+    @Test
+    void existsReturnsZeroForNonExistentKey() {
+        var result = commands.exists("nokey");
+        assertEquals(0L, result);
+    }
+
+    @Test
+    void delRemovesKeyAndReturnsOne() {
+        commands.set("todel", "val");
+        var result = commands.del("todel");
+        assertEquals(1L, result);
+        assertNull(commands.get("todel"));
+    }
+
+    @Test
+    void delReturnsZeroForMissingKey() {
+        var result = commands.del("ghost");
+        assertEquals(0L, result);
+    }
 }

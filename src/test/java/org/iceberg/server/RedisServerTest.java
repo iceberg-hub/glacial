@@ -103,4 +103,44 @@ class RedisServerTest {
             assertTrue(readResp(socket.getInputStream()).contains("ERR Protocol error"));
         }
     }
+
+    @Test
+    void existsReturnsOneForExistingKey() throws Exception {
+        try (var socket = new Socket()) {
+            socket.connect(new InetSocketAddress("localhost", port), 5000);
+            var out = socket.getOutputStream();
+            var in = socket.getInputStream();
+            sendAndFlush(out, "*3\r\n$3\r\nSET\r\n$3\r\nfoo\r\n$3\r\nbar\r\n");
+            assertEquals("+OK", readResp(in));
+
+            sendAndFlush(out, "*2\r\n$6\r\nEXISTS\r\n$3\r\nfoo\r\n");
+            assertEquals(":1", readResp(in));
+        }
+    }
+
+    @Test
+    void existsReturnsZeroForMissingKey() throws Exception {
+        try (var socket = new Socket()) {
+            socket.connect(new InetSocketAddress("localhost", port), 5000);
+            sendAndFlush(socket.getOutputStream(), "*2\r\n$6\r\nEXISTS\r\n$7\r\nmissing\r\n");
+            assertEquals(":0", readResp(socket.getInputStream()));
+        }
+    }
+
+    @Test
+    void delRemovesKey() throws Exception {
+        try (var socket = new Socket()) {
+            socket.connect(new InetSocketAddress("localhost", port), 5000);
+            var out = socket.getOutputStream();
+            var in = socket.getInputStream();
+            sendAndFlush(out, "*3\r\n$3\r\nSET\r\n$3\r\nkey\r\n$5\r\nvalue\r\n");
+            assertEquals("+OK", readResp(in));
+
+            sendAndFlush(out, "*2\r\n$3\r\nDEL\r\n$3\r\nkey\r\n");
+            assertEquals(":1", readResp(in));
+
+            sendAndFlush(out, "*2\r\n$3\r\nGET\r\n$3\r\nkey\r\n");
+            assertEquals("$-1", readResp(in));
+        }
+    }
 }
