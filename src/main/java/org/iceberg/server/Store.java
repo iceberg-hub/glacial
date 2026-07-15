@@ -61,39 +61,39 @@ public class Store {
     }
 
     public long increment(String key) {
-        var val = data.get(key);
-        long current = 0;
-        if (val != null) {
-            if (!(val instanceof StoreValue.BytesValue(byte[] bytes, long expiresAtMillis))) {
+        long[] result = new long[1];
+        data.compute(key, (k, val) -> {
+            long current = 0;
+            if (val instanceof StoreValue.BytesValue(byte[] bytes, long expiresAtMillis)) {
+                if (expiresAtMillis != NO_EXPIRY && System.currentTimeMillis() >= expiresAtMillis) {
+                    return null;
+                }
+                current = Long.parseLong(new String(bytes, StandardCharsets.UTF_8));
+            } else if (val != null) {
                 throw new StoreTypeException("ERR wrong type or key");
             }
-            if (expiresAtMillis != NO_EXPIRY && System.currentTimeMillis() >= expiresAtMillis) {
-                data.remove(key);
-            } else {
-                current = Long.parseLong(new String(bytes, StandardCharsets.UTF_8));
-            }
-        }
-        long result = current + 1;
-        data.put(key, new StoreValue.BytesValue(Long.toString(result).getBytes(StandardCharsets.UTF_8)));
-        return result;
+            result[0] = current + 1;
+            return new StoreValue.BytesValue(Long.toString(result[0]).getBytes(StandardCharsets.UTF_8));
+        });
+        return result[0];
     }
 
     public long decrement(String key) {
-        var val = data.get(key);
-        long current = 0;
-        if (val != null) {
-            if (!(val instanceof StoreValue.BytesValue(byte[] bytes, long expiresAtMillis))) {
+        long[] result = new long[1];
+        data.compute(key, (k, val) -> {
+            long current = 0;
+            if (val instanceof StoreValue.BytesValue(byte[] bytes, long expiresAtMillis)) {
+                if (expiresAtMillis != NO_EXPIRY && System.currentTimeMillis() >= expiresAtMillis) {
+                    return null;
+                }
+                current = Long.parseLong(new String(bytes, StandardCharsets.UTF_8));
+            } else if (val != null) {
                 throw new StoreTypeException("ERR wrong type or key");
             }
-            if (expiresAtMillis != NO_EXPIRY && System.currentTimeMillis() >= expiresAtMillis) {
-                data.remove(key);
-            } else {
-                current = Long.parseLong(new String(bytes, StandardCharsets.UTF_8));
-            }
-        }
-        long result = current - 1;
-        data.put(key, new StoreValue.BytesValue(Long.toString(result).getBytes(StandardCharsets.UTF_8)));
-        return result;
+            result[0] = current - 1;
+            return new StoreValue.BytesValue(Long.toString(result[0]).getBytes(StandardCharsets.UTF_8));
+        });
+        return result[0];
     }
 
     private StoreValue.ListValue getListOrCreate(String key) {
@@ -105,6 +105,8 @@ public class Store {
             var existing2 = data.putIfAbsent(key, newList);
             if (existing2 instanceof StoreValue.ListValue lv) {
                 return lv;
+            } else if (existing2 != null) {
+                throw new StoreTypeException("ERR wrong type for key");
             }
             return newList;
         } else {
