@@ -3,15 +3,20 @@ package org.iceberg.server;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.nio.file.Path;
 import java.time.Duration;
 
 import static org.iceberg.server.RedisTestFixture.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class RedisServerTest {
+
+    @TempDir
+    Path tempDir;
 
     private RedisServer server;
     private Thread serverThread;
@@ -20,7 +25,8 @@ class RedisServerTest {
     @BeforeEach
     void setUp() throws Exception {
         port = findAvailablePort();
-        server = new RedisServer(port);
+        var savePath = tempDir.resolve("dump.rdb");
+        server = new RedisServer(port, savePath);
         serverThread = new Thread(() -> server.start());
         serverThread.setDaemon(true);
         serverThread.start();
@@ -223,5 +229,42 @@ class RedisServerTest {
             sendAndFlush(out, "*2\r\n$3\r\nGET\r\n$3\r\nlst\r\n");
             assertEquals("$-1", readResp(in));
         }
+    }
+
+    @Test
+    void saveThenLoadPersistsData() throws Exception {
+        var savePath = tempDir.resolve("dump.rdb");
+        try (var socket = new Socket()) {
+            socket.connect(new InetSocketAddress("localhost", port), 5000);
+            var out = socket.getOutputStream();
+            var in = socket.getInputStream();
+
+            sendAndFlush(out, "*3\r\n$3\r\nSET\r\n$5\r\nmykey\r\n$7\r\nmyvalue\r\n");
+            assertEquals("+OK", readResp(in));
+
+            sendAndFlush(out, "*1\r\n$4\r\nSAVE\r\n");
+            assertEquals("+OK", readResp(in));
+        }
+
+        serverThread.interrupt();
+        serverThread.join(2000);
+
+        port = findAvailablePort();
+        var server2 = new RedisServer(port, savePath);
+        var thread2 = new Thread(() -> server2.start());
+        thread2.setDaemon(true);
+        thread2.start();
+        waitForPort(port, Duration.ofSeconds(5));
+
+        try (var socket = new Socket()) {
+            socket.connect(new InetSocketAddress("localhost", port), 5000);
+            var out = socket.getOutputStream();
+            var in = socket.getInputStream();
+            sendAndFlush(out, "*2\r\n$3\r\nGET\r\n$5\r\nmykey\r\n");
+            assertEquals("$7", readResp(in));
+            assertEquals("myvalue", readBytes(in, 7));
+        }
+
+        thread2.interrupt();
     }
 }

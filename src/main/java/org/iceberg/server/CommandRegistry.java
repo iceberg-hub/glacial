@@ -12,9 +12,11 @@ import org.iceberg.server.command.LpushCommand;
 import org.iceberg.server.command.LrangeCommand;
 import org.iceberg.server.command.PingCommand;
 import org.iceberg.server.command.RpushCommand;
+import org.iceberg.server.command.SaveCommand;
 import org.iceberg.server.command.SetCommand;
 
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -26,7 +28,7 @@ public class CommandRegistry {
     private final Map<String, Command> commands;
     private static final Logger LOG = Logger.getLogger(CommandRegistry.class.getName());
 
-    public CommandRegistry(Store store) {
+    public CommandRegistry(Store store, Path savePath) {
         this.commands = new HashMap<>(Map.of(
             "PING", new PingCommand(),
             "ECHO", new EchoCommand(),
@@ -40,6 +42,7 @@ public class CommandRegistry {
             "RPUSH", new RpushCommand(store)
         ));
         this.commands.put("LRANGE", new LrangeCommand(store));
+        this.commands.put("SAVE", new SaveCommand(store, savePath));
     }
 
     public RespValue execute(RespValue request) {

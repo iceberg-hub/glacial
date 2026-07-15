@@ -12,13 +12,18 @@ import io.lettuce.core.protocol.CommandType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.time.Duration;
+import java.nio.file.Path;
 
 import static org.iceberg.server.RedisTestFixture.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class LettuceIntegrationTest {
+
+    @TempDir
+    Path tempDir;
 
     private RedisServer server;
     private Thread serverThread;
@@ -29,7 +34,8 @@ class LettuceIntegrationTest {
     @BeforeEach
     void setUp() throws Exception {
         int port = findAvailablePort();
-        server = new RedisServer(port);
+        var savePath = tempDir.resolve("dump.rdb");
+        server = new RedisServer(port, savePath);
         serverThread = new Thread(() -> server.start());
         serverThread.setDaemon(true);
         serverThread.start();
@@ -228,5 +234,16 @@ class LettuceIntegrationTest {
         assertEquals("a", list.get(0));
         assertEquals("b", list.get(1));
         assertEquals("c", list.get(2));
+    }
+
+    @Test
+    void saveReturnsOk() {
+        commands.set("key", "value");
+        var result = commands.dispatch(
+                CommandType.SAVE,
+                new StatusOutput<>(StringCodec.UTF8),
+                new CommandArgs<>(StringCodec.UTF8)
+        );
+        assertEquals("OK", result);
     }
 }

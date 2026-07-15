@@ -3,11 +3,13 @@ package org.iceberg.server;
 import org.iceberg.resp.*;
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.Path;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class CommandRegistryTest {
 
-    private final CommandRegistry registry = new CommandRegistry(new Store());
+    private final CommandRegistry registry = new CommandRegistry(new Store(), Path.of("test-dump.rdb"));
 
     @Test
     void ping() {

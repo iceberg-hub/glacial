@@ -7,6 +7,7 @@ import java.io.PushbackInputStream;
 import java.io.UncheckedIOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.file.Path;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -18,8 +19,14 @@ public class RedisServer {
     private final CommandRegistry commandRegistry;
 
     public RedisServer(int port) {
+        this(port, Path.of("dump.rdb"));
+    }
+
+    public RedisServer(int port, Path savePath) {
         this.port = port;
-        this.commandRegistry = new CommandRegistry(new Store());
+        var store = new Store();
+        Persistence.load(store, savePath);
+        this.commandRegistry = new CommandRegistry(store, savePath);
     }
 
     public void start() {

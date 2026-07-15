@@ -4,15 +4,20 @@ import org.iceberg.server.async.AsyncRedisServer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.nio.file.Path;
 import java.time.Duration;
 
 import static org.iceberg.server.RedisTestFixture.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class AsyncRedisServerTest {
+
+    @TempDir
+    Path tempDir;
 
     private AsyncRedisServer server;
     private Thread serverThread;
@@ -21,7 +26,8 @@ class AsyncRedisServerTest {
     @BeforeEach
     void setUp() throws Exception {
         port = findAvailablePort();
-        server = new AsyncRedisServer(port);
+        var savePath = tempDir.resolve("dump.rdb");
+        server = new AsyncRedisServer(port, savePath);
         serverThread = new Thread(() -> {
             try {
                 server.start();
