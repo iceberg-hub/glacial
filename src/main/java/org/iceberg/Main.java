@@ -5,6 +5,7 @@ import org.iceberg.benchmark.BenchmarkRunner;
 import org.iceberg.server.RedisServer;
 import org.iceberg.server.async.AsyncRedisServer;
 
+import java.nio.file.Path;
 import java.util.Locale;
 
 public class Main {
@@ -19,21 +20,25 @@ public class Main {
 
         var port = 6379;
         var mode = "threaded";
+        var dir = ".";
 
         for (var i = 0; i < args.length; i++) {
             switch (args[i]) {
                 case "--port", "-p" -> port = Integer.parseInt(args[++i]);
                 case "--mode", "-m" -> mode = args[++i];
+                case "--dir", "-d" -> dir = args[++i];
             }
         }
 
+        var savePath = Path.of(dir, "dump.rdb");
+
         switch (mode.toLowerCase(Locale.ROOT)) {
             case "threaded", "thread" -> {
-                var server = new RedisServer(port);
+                var server = new RedisServer(port, savePath);
                 server.start();
             }
             case "async" -> {
-                var server = new AsyncRedisServer(port);
+                var server = new AsyncRedisServer(port, savePath);
                 server.start();
             }
             default -> {

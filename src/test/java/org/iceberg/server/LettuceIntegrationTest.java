@@ -13,13 +13,18 @@ import io.lettuce.core.protocol.CommandType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.time.Duration;
+import java.nio.file.Path;
 
 import static org.iceberg.server.RedisTestFixture.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class LettuceIntegrationTest {
+
+    @TempDir
+    Path tempDir;
 
     private RedisServer server;
     private Thread serverThread;
@@ -30,7 +35,8 @@ class LettuceIntegrationTest {
     @BeforeEach
     void setUp() throws Exception {
         int port = findAvailablePort();
-        server = new RedisServer(port);
+        var savePath = tempDir.resolve("dump.rdb");
+        server = new RedisServer(port, savePath);
         serverThread = new Thread(() -> server.start());
         serverThread.setDaemon(true);
         serverThread.start();
@@ -201,5 +207,107 @@ class LettuceIntegrationTest {
         assertEquals("value", commands.get("key"));
         commands.set("key", "newvalue");
         assertEquals("newvalue", commands.get("key"));
+    }
+
+    @Test
+    void existsReturnsOneForExistingKey() {
+        commands.set("mykey", "myval");
+        var result = commands.exists("mykey");
+        assertEquals(1L, result);
+    }
+
+    @Test
+    void existsReturnsZeroForNonExistentKey() {
+        var result = commands.exists("nokey");
+        assertEquals(0L, result);
+    }
+
+    @Test
+    void delRemovesKeyAndReturnsOne() {
+        commands.set("todel", "val");
+        var result = commands.del("todel");
+        assertEquals(1L, result);
+        assertNull(commands.get("todel"));
+    }
+
+    @Test
+    void delReturnsZeroForMissingKey() {
+        var result = commands.del("ghost");
+        assertEquals(0L, result);
+    }
+
+    @Test
+    void incrNonExistentKeyReturnsOne() {
+        var result = commands.incr("mycounter");
+        assertEquals(1L, result);
+    }
+
+    @Test
+    void incrExistingValue() {
+        commands.set("cnt", "10");
+        var result = commands.incr("cnt");
+        assertEquals(11L, result);
+    }
+
+    @Test
+    void incrNonIntegerReturnsError() {
+        commands.set("str", "abc");
+        assertThrows(Exception.class, () -> commands.incr("str"));
+    }
+
+    @Test
+    void decrNonExistentKeyReturnsMinusOne() {
+        var result = commands.decr("mycounter");
+        assertEquals(-1L, result);
+    }
+
+    @Test
+    void decrExistingValue() {
+        commands.set("cnt", "10");
+        var result = commands.decr("cnt");
+        assertEquals(9L, result);
+    }
+
+    @Test
+    void lpushCreatesListAndReturnsLength() {
+        var result = commands.lpush("mylist", "a", "b", "c");
+        assertEquals(3L, result);
+    }
+
+    @Test
+    void rpushCreatesListAndReturnsLength() {
+        var result = commands.rpush("mylist", "x", "y");
+        assertEquals(2L, result);
+    }
+
+    @Test
+    void lpushThenLrange() {
+        commands.lpush("lst", "a", "b", "c");
+        var list = commands.lrange("lst", 0, -1);
+        assertEquals(3, list.size());
+        assertEquals("c", list.get(0));
+        assertEquals("b", list.get(1));
+        assertEquals("a", list.get(2));
+    }
+
+    @Test
+    void rpushThenLrange() {
+        commands.rpush("lst", "a", "b", "c");
+        var list = commands.lrange("lst", 0, -1);
+        assertEquals(3, list.size());
+        assertEquals("a", list.get(0));
+        assertEquals("b", list.get(1));
+        assertEquals("c", list.get(2));
+    }
+
+    @Test
+    void saveReturnsOk() {
+        commands.set("key", "value");
+        var result = commands.dispatch(
+                CommandType.SAVE,
+                new StatusOutput<>(StringCodec.UTF8),
+                new CommandArgs<>(StringCodec.UTF8)
+        );
+        assertEquals("OK", result);
     }
 }
